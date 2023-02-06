@@ -22,6 +22,8 @@ const buttonIconSVG = `<?xml version="1.0" encoding="utf-8"?>
   </g>
 </svg>`;
 
+const WORKSPACE = "Execution";
+
 function main() {
   const githubHeaderActions = document.querySelector(".gh-header-actions");
   const issueNumber = document.location.pathname.split("/").pop();
@@ -31,30 +33,47 @@ function main() {
 
   if (githubHeaderActions && issueNumber && repositoryID) {
     findEpicAndInsertButton();
+
+    chrome.storage.sync.onChanged.addListener(() => {
+      document.querySelector(".zenhub-dependency-graph-button")?.remove();
+      findEpicAndInsertButton();
+    });
   }
 
   async function findEpicAndInsertButton() {
+    const { apiKey } = await chrome.storage.sync.get("apiKey");
+
+    if (!apiKey) {
+      return;
+    }
+
     const epicIssueNumber = await getEpicForIssue(
       parseInt(issueNumber, 10),
-      parseInt(repositoryID, 10)
+      parseInt(repositoryID, 10),
+      apiKey
     );
 
     if (epicIssueNumber) {
-      insertButton();
+      insertButton(epicIssueNumber);
     }
   }
 
-  function insertButton() {
+  function insertButton(epicIssueNumber) {
     const button = document.createElement("button");
     button.className =
-      "btn btn-sm float-none d-flex flex-items-center flex-order-2 mr-1"; // TODO: Remove flex order?
+      "btn btn-sm float-none d-flex flex-items-center flex-order-2 mr-1 zenhub-dependency-graph-button"; // TODO: Remove flex order?
     button.innerHTML = buttonIconSVG + " Deps";
 
     const svg = button.children[0];
     // Need to use setAttribute to set the class on an SVG element.
     svg.setAttribute("class", "mr-1");
     svg.className = "mr-1";
-    svg.style = "height: 1em;";
+    svg.style = "height: 1.2em;";
+
+    button.addEventListener("click", () => {
+      const url = `https://techanvil.github.io/zenhub-dependency-graph/?workspace=${WORKSPACE}&epic=${epicIssueNumber}`;
+      window.open(url, "_blank");
+    });
 
     // append to the end of the header actions
     githubHeaderActions.appendChild(button);
@@ -65,7 +84,7 @@ function main() {
  * GRAPHQL QUERIES
  */
 
-// Note, `parentEpics` is deprecated and the API suggests to use `parentZenhubEpics`, but this doesn't return anything.
+// Note, `parentEpics` is deprecated and the API suggests to use `parentZenhubEpics`, but this doesn't currently return anything (Feb 2023).
 // As mentioned here: https://community.zenhub.com/t/api-get-the-epic-an-issue-is-assigned-to/1041/2
 const GET_EPIC_FOR_ISSUE_QUERY = gql`
   query GetEpicForIssue($issueNumber: Int!, $repositoryGhId: Int!) {
@@ -91,10 +110,9 @@ function gql(strings) {
  */
 
 const ENDPOINT_URL = "https://api.zenhub.com/public/graphql/";
-const ZENHUB_API_KEY = "";
 
-async function getEpicForIssue(issueNumber, repositoryID) {
-  const gqlQuery = createGqlQuery(ENDPOINT_URL, ZENHUB_API_KEY);
+async function getEpicForIssue(issueNumber, repositoryID, zenhubApiKey) {
+  const gqlQuery = createGqlQuery(ENDPOINT_URL, zenhubApiKey);
 
   const {
     issueByInfo: {
@@ -111,8 +129,6 @@ async function getEpicForIssue(issueNumber, repositoryID) {
     issueNumber,
     repositoryGhId: repositoryID,
   });
-
-  console.log("epicIssueNumber", epicIssueNumber);
 
   return epicIssueNumber;
 }
