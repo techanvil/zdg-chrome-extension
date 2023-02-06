@@ -17,22 +17,123 @@ const buttonIconSVG = `<?xml version="1.0" encoding="utf-8"?>
   <rect style="stroke: rgb(0, 0, 0); paint-order: fill; stroke-width: 0px; fill: rgb(95, 199, 125);" x="0" y="30" width="30" height="10" rx="3" ry="3"/>
 </svg>`;
 
-const githubHeaderActions = document.querySelector(".gh-header-actions");
+function main() {
+  const githubHeaderActions = document.querySelector(".gh-header-actions");
+  const issueNumber = document.location.pathname.split("/").pop();
+  const repositoryID = document
+    .querySelector("meta[name=octolytics-dimension-repository_id]")
+    ?.getAttribute("content");
 
-if (githubHeaderActions) {
-  const text = githubHeaderActions.textContent;
+  if (githubHeaderActions && issueNumber && repositoryID) {
+    findEpicAndInsertButton();
+  }
 
-  const button = document.createElement("button");
-  button.className =
-    "btn btn-sm float-none d-flex flex-items-center flex-order-2 mr-1"; // TODO: Remove flex order?
-  button.innerHTML = buttonIconSVG + " Deps";
+  async function findEpicAndInsertButton() {
+    const epicIssueNumber = await getEpicForIssue(
+      parseInt(issueNumber, 10),
+      parseInt(repositoryID, 10)
+    );
 
-  const svg = button.children[0];
-  // Need to use setAttribute to set the class on an SVG element.
-  svg.setAttribute("class", "mr-1");
-  svg.className = "mr-1";
-  svg.style = "height: 1em;";
+    if (epicIssueNumber) {
+      insertButton();
+    }
+  }
 
-  // append to the end of the header actions
-  githubHeaderActions.appendChild(button);
+  function insertButton() {
+    const button = document.createElement("button");
+    button.className =
+      "btn btn-sm float-none d-flex flex-items-center flex-order-2 mr-1"; // TODO: Remove flex order?
+    button.innerHTML = buttonIconSVG + " Deps";
+
+    const svg = button.children[0];
+    // Need to use setAttribute to set the class on an SVG element.
+    svg.setAttribute("class", "mr-1");
+    svg.className = "mr-1";
+    svg.style = "height: 1em;";
+
+    // append to the end of the header actions
+    githubHeaderActions.appendChild(button);
+  }
 }
+
+/**
+ * GRAPHQL QUERIES
+ */
+
+// Note, `parentEpics` is deprecated and the API suggests to use `parentZenhubEpics`, but this doesn't return anything.
+// As mentioned here: https://community.zenhub.com/t/api-get-the-epic-an-issue-is-assigned-to/1041/2
+const GET_EPIC_FOR_ISSUE_QUERY = gql`
+  query GetEpicForIssue($issueNumber: Int!, $repositoryGhId: Int!) {
+    issueByInfo(issueNumber: $issueNumber, repositoryGhId: $repositoryGhId) {
+      parentEpics {
+        nodes {
+          issue {
+            number
+          }
+        }
+      }
+    }
+  }
+`;
+
+// For the sake of syntax highlighting:
+function gql(strings) {
+  return strings[0];
+}
+
+/**
+ * DATA RETRIEVAL FUNCTIONS
+ */
+
+const ENDPOINT_URL = "https://api.zenhub.com/public/graphql/";
+const ZENHUB_API_KEY = "";
+
+async function getEpicForIssue(issueNumber, repositoryID) {
+  const gqlQuery = createGqlQuery(ENDPOINT_URL, ZENHUB_API_KEY);
+
+  const {
+    issueByInfo: {
+      parentEpics: {
+        // Currently, we return the first epic, in future we should allow the user to choose from a list when there is more than one.
+        nodes: [
+          {
+            issue: { number: epicIssueNumber },
+          },
+        ],
+      },
+    },
+  } = await gqlQuery(GET_EPIC_FOR_ISSUE_QUERY, "GetEpicForIssue", {
+    issueNumber,
+    repositoryGhId: repositoryID,
+  });
+
+  console.log("epicIssueNumber", epicIssueNumber);
+
+  return epicIssueNumber;
+}
+
+function createGqlQuery(endpointUrl, zenhubApiKey) {
+  return async function gqlQuery(query, operationName, variables) {
+    const options = {
+      method: "post",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${zenhubApiKey}`,
+      },
+      body: JSON.stringify({
+        operationName,
+        query,
+        variables,
+      }),
+    };
+
+    const response = await fetch(endpointUrl, options);
+    const json = await response.json();
+    return json.data;
+  };
+}
+
+/**
+ * RUN THE SCRIPT
+ */
+main();
