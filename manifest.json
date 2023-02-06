@@ -15,7 +15,8 @@
       "matches": ["https://github.com/*/*/issues/*"]
     }
   ],
-  "permissions": ["storage"],
+  "permissions": ["scripting", "storage"],
+  "host_permissions": ["https://github.com/*/*/issues/*"],
   "options_ui": {
     "page": "options.html",
     "open_in_tab": false

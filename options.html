@@ -4,19 +4,16 @@
     <title>Zenhub Dependency Graph for GitHub - Options</title>
   </head>
   <body>
-    <!--
-    Favorite color:
-    <select id="color">
-      <option value="red">red</option>
-      <option value="green">green</option>
-      <option value="blue">blue</option>
-      <option value="yellow">yellow</option>
-    </select>
-    -->
+    <label>
+      Workspace
+      <select id="workspace">
+        <option value="">No workspaces</option>
+      </select>
+    </label>
 
     <label>
-      <input type="password" id="api-key" />
       Zenhub GraphQL API Key
+      <input type="password" id="api-key" />
     </label>
 
     <div id="status"></div>

@@ -22,8 +22,6 @@ const buttonIconSVG = `<?xml version="1.0" encoding="utf-8"?>
   </g>
 </svg>`;
 
-const WORKSPACE = "Execution";
-
 function main() {
   const githubHeaderActions = document.querySelector(".gh-header-actions");
   const issueNumber = document.location.pathname.split("/").pop();
@@ -41,9 +39,14 @@ function main() {
   }
 
   async function findEpicAndInsertButton() {
-    const { apiKey } = await chrome.storage.sync.get("apiKey");
+    const { apiKey, organizationName, workspaceName } =
+      await chrome.storage.sync.get([
+        "apiKey",
+        "organizationName",
+        "workspaceName",
+      ]);
 
-    if (!apiKey) {
+    if (!(apiKey && organizationName && workspaceName)) {
       return;
     }
 
@@ -54,11 +57,11 @@ function main() {
     );
 
     if (epicIssueNumber) {
-      insertButton(epicIssueNumber);
+      insertButton(organizationName, workspaceName, epicIssueNumber);
     }
   }
 
-  function insertButton(epicIssueNumber) {
+  function insertButton(organizationName, workspaceName, epicIssueNumber) {
     const button = document.createElement("button");
     button.className =
       "btn btn-sm float-none d-flex flex-items-center flex-order-2 mr-1 zenhub-dependency-graph-button"; // TODO: Remove flex order?
@@ -71,7 +74,11 @@ function main() {
     svg.style = "height: 1.2em;";
 
     button.addEventListener("click", () => {
-      const url = `https://techanvil.github.io/zenhub-dependency-graph/?workspace=${WORKSPACE}&epic=${epicIssueNumber}`;
+      const url = `https://techanvil.github.io/zenhub-dependency-graph/?organization=${encodeURIComponent(
+        organizationName
+      )}&workspace=${encodeURIComponent(
+        workspaceName
+      )}&epic=${encodeURIComponent(epicIssueNumber)}`;
       window.open(url, "_blank");
     });
 
