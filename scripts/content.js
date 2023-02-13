@@ -121,21 +121,13 @@ const ENDPOINT_URL = "https://api.zenhub.com/public/graphql/";
 async function getEpicForIssue(issueNumber, repositoryID, zenhubApiKey) {
   const gqlQuery = createGqlQuery(ENDPOINT_URL, zenhubApiKey);
 
-  const {
-    issueByInfo: {
-      parentEpics: {
-        // Currently, we return the first epic, in future we should allow the user to choose from a list when there is more than one.
-        nodes: [
-          {
-            issue: { number: epicIssueNumber },
-          },
-        ],
-      },
-    },
-  } = await gqlQuery(GET_EPIC_FOR_ISSUE_QUERY, "GetEpicForIssue", {
+  const response = await gqlQuery(GET_EPIC_FOR_ISSUE_QUERY, "GetEpicForIssue", {
     issueNumber,
     repositoryGhId: repositoryID,
   });
+
+  // Currently, we return the first epic, in future we should allow the user to choose from a list when there is more than one.
+  const epicIssueNumber = response.issueByInfo?.parentEpics?.nodes[0]?.issue?.number;
 
   return epicIssueNumber;
 }
